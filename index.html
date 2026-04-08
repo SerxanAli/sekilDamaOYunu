@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="az">
 <head>
@@ -256,10 +255,9 @@
         <div class="puzzle-stats" id="progressText">🔓 0 / 3 hissə açılıb</div>
         <div class="pieces-container" id="piecesContainer"></div>
         
-        <!-- Həm avtomatik, həm də əl ilə seçim üçün düymə -->
         <button id="selectImageBtn" class="upload-btn">📁 ŞƏKİL SEÇ (Dəyiş)</button>
         <input type="file" id="fileInput" accept="image/*" style="display: none;">
-        <div style="font-size: 9px; margin-top: 12px; color: #6aa;">🏆 Hər qələbə = 1 hissə açılır<br>📂 "sekil.png" avtomatik yüklənir</div>
+        <div style="font-size: 9px; margin-top: 12px; color: #6aa;">🏆 Hər qələbə = 1 hissə açılır<br>📂 "sekil.jpg" avtomatik yüklənir</div>
     </div>
 
     <div class="game-container">
@@ -275,11 +273,11 @@
 
 <script>
     // ============================================================
-    // ŞƏKİL SİSTEMİ - HƏM AVTOMATİK (sekil.png), HƏM DƏ ƏL İLƏ SEÇİM
+    // ŞƏKİL SİSTEMİ - İNDİ "sekil.jpg" AVTOMATIK YÜKLƏNİR
     // ============================================================
     let unlockedPieces = [false, false, false];
     let nextUnlockIndex = 0;
-    let currentImageUrl = null;  // əgər null-dursa, avtomatik "sekil.png" yüklənir
+    let currentImageUrl = null;  // null olanda avtomatik "sekil.jpg" yüklənir
     
     // Şəkili 3 hissəyə bölür
     function splitImageToPieces(imageUrl, callback) {
@@ -304,21 +302,27 @@
             }
         };
         img.onerror = () => {
-            // Şəkil tapılmadısa, gözəl default
+            // Şəkil tapılmadısa, gözəl default neon şəkil
             const fallback = [];
             for (let i = 0; i < 3; i++) {
                 const canvas = document.createElement('canvas');
                 canvas.width = 240;
                 canvas.height = 100;
                 const ctx = canvas.getContext('2d');
-                ctx.fillStyle = `hsl(${i * 120}, 70%, 35%)`;
+                const gradient = ctx.createLinearGradient(0, 0, 240, 100);
+                gradient.addColorStop(0, `hsl(${i * 120 + 200}, 80%, 55%)`);
+                gradient.addColorStop(1, `hsl(${i * 120 + 200}, 80%, 30%)`);
+                ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = "white";
-                ctx.font = "bold 14px Orbitron";
-                ctx.fillText(`🔮 Hissə ${i+1}`, 20, 50);
+                ctx.font = "bold 18px Orbitron";
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = "cyan";
+                ctx.fillText("★", 110, 60);
                 fallback.push(canvas.toDataURL());
             }
             callback(fallback);
+            console.log("Şəkil tapılmadı: " + imageUrl);
         };
         img.src = imageUrl;
     }
@@ -329,12 +333,13 @@
         const total = unlockedPieces.filter(v => v === true).length;
         document.getElementById('progressText').innerHTML = `🏆 ${total} / 3 hissə açılıb`;
         
-        // İstifadəçi şəkil seçibsə onu götür, yoxsa avtomatik "sekil.png"
+        // Şəkil yolu: əgər istifadəçi şəkil seçibsə onu götür, yoxsa "sekil.jpg"
         let imageToLoad;
         if (currentImageUrl) {
             imageToLoad = currentImageUrl;
         } else {
-            imageToLoad = "sekil.png";  // AVTOMATİK OLARAQ EYNİ PAPKADAKI "sekil.png" FAYLINI GÖTÜRÜR
+            // AVTOMATIK OLARAQ "sekil.jpg" - SİZİN ŞƏKİL ADINIZ
+            imageToLoad = "sekil.jpg";
         }
         
         splitImageToPieces(imageToLoad, (pieceUrls) => {
@@ -352,23 +357,28 @@
     }
     
     function unlockNextPieceSegment() {
-        if (nextUnlockIndex >= 3) return false;
+        if (nextUnlockIndex >= 3) {
+            return false;
+        }
         if (!unlockedPieces[nextUnlockIndex]) {
             unlockedPieces[nextUnlockIndex] = true;
             refreshPuzzleDisplay();
             nextUnlockIndex++;
             return true;
         }
+        // təhlükəsizlik üçün boş yeri tap
+        for (let i = 0; i < 3; i++) {
+            if (!unlockedPieces[i]) {
+                unlockedPieces[i] = true;
+                nextUnlockIndex = i + 1;
+                refreshPuzzleDisplay();
+                return true;
+            }
+        }
         return false;
     }
     
-    function resetPuzzleProgress() {
-        unlockedPieces = [false, false, false];
-        nextUnlockIndex = 0;
-        refreshPuzzleDisplay();
-    }
-    
-    // ========== ŞƏKİL SEÇİMİ (İstəsəniz dəyişə bilərsiniz) ==========
+    // ========== ŞƏKİL SEÇİMİ (Əl ilə dəyişmək üçün) ==========
     function setupImageSelection() {
         const selectBtn = document.getElementById('selectImageBtn');
         const fileInput = document.getElementById('fileInput');
@@ -383,7 +393,7 @@
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     currentImageUrl = ev.target.result;
-                    refreshPuzzleDisplay();  // Yeni şəkillə yenilə
+                    refreshPuzzleDisplay();
                 };
                 reader.readAsDataURL(file);
             }
@@ -585,7 +595,7 @@
     // ========== BAŞLANĞIC ==========
     initBoard();
     setupImageSelection();
-    refreshPuzzleDisplay();  // Avtomatik "sekil.png" ni yükləyəcək (varsa)
+    refreshPuzzleDisplay();  // İndi "sekil.jpg" ni avtomatik yükləyəcək!
     renderBoard();
     document.getElementById('resetGameBtn').onclick = () => resetGame();
 </script>
