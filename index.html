@@ -81,17 +81,61 @@
             overflow: hidden;
             transition: all 0.25s ease;
             border: 2px solid #2a2a4a;
+            position: relative;
         }
 
+        /* AÇILMAMIŞ HİSSƏ - TAMAMİLƏ QARA, ŞƏKİL GÖRÜNMÜR */
         .piece-slot.locked {
-            filter: blur(8px) grayscale(0.5);
-            border-color: #444;
+            background: #000000;
+            border-color: #333;
+        }
+        
+        .piece-slot.locked .piece-img {
+            display: none;
+        }
+        
+        .piece-slot.locked::before {
+            content: "?";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: #444;
+            font-family: 'Orbitron', monospace;
+            text-shadow: 0 0 5px #222;
+            z-index: 1;
+        }
+        
+        .piece-slot.locked::after {
+            content: "🔒";
+            position: absolute;
+            bottom: 5px;
+            right: 8px;
+            font-size: 14px;
+            color: #555;
+            z-index: 1;
         }
 
+        /* AÇILMIŞ HİSSƏ - ŞƏKİL GÖRÜNÜR */
         .piece-slot.unlocked {
-            filter: drop-shadow(0 0 12px cyan) blur(0px);
+            filter: drop-shadow(0 0 12px cyan);
             border: 2px solid cyan;
             animation: neonPulse 1.2s infinite alternate;
+            background: transparent;
+        }
+        
+        .piece-slot.unlocked::before {
+            display: none;
+        }
+        
+        .piece-slot.unlocked::after {
+            display: none;
+        }
+        
+        .piece-slot.unlocked .piece-img {
+            display: block;
         }
 
         @keyframes neonPulse {
@@ -272,10 +316,11 @@
 </div>
 
 <script>
-    // ========== ŞƏKİL SİSTEMİ ==========
+    // ========== ŞƏKİL SİSTEMİ - AÇILMAMIŞ HİSSƏLƏR TAM GÖRÜNMƏZ ==========
     let unlockedPieces = [false, false, false];
     let nextUnlockIndex = 0;
     let currentImageUrl = null;
+    let cachedPieceUrls = [null, null, null];
     
     function splitImageToPieces(imageUrl, callback) {
         const img = new Image();
@@ -299,22 +344,15 @@
             }
         };
         img.onerror = () => {
+            // Default şəkil (tamamilə qara fon - heç nə görünməz)
             const fallback = [];
             for (let i = 0; i < 3; i++) {
                 const canvas = document.createElement('canvas');
                 canvas.width = 240;
                 canvas.height = 100;
                 const ctx = canvas.getContext('2d');
-                const gradient = ctx.createLinearGradient(0, 0, 240, 100);
-                gradient.addColorStop(0, `hsl(${i * 120 + 200}, 80%, 55%)`);
-                gradient.addColorStop(1, `hsl(${i * 120 + 200}, 80%, 30%)`);
-                ctx.fillStyle = gradient;
+                ctx.fillStyle = "#000000";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "white";
-                ctx.font = "bold 18px Orbitron";
-                ctx.shadowBlur = 8;
-                ctx.shadowColor = "cyan";
-                ctx.fillText("★", 110, 60);
                 fallback.push(canvas.toDataURL());
             }
             callback(fallback);
@@ -331,14 +369,27 @@
         let imageToLoad = currentImageUrl ? currentImageUrl : "sekil.jpg";
         
         splitImageToPieces(imageToLoad, (pieceUrls) => {
+            cachedPieceUrls = pieceUrls;
             container.innerHTML = '';
             for (let i = 0; i < 3; i++) {
                 const slot = document.createElement('div');
                 slot.className = `piece-slot ${unlockedPieces[i] ? 'unlocked' : 'locked'}`;
-                const img = document.createElement('img');
-                img.className = 'piece-img';
-                img.src = pieceUrls[i];
-                slot.appendChild(img);
+                
+                if (unlockedPieces[i]) {
+                    // Açılmış hissə - şəkil görünür
+                    const img = document.createElement('img');
+                    img.className = 'piece-img';
+                    img.src = cachedPieceUrls[i];
+                    slot.appendChild(img);
+                } else {
+                    // Açılmamış hissə - tamamilə qara, heç nə görünməz
+                    // CSS ilə ::before və ::after əlavə olunacaq
+                    const hiddenDiv = document.createElement('div');
+                    hiddenDiv.style.width = '100%';
+                    hiddenDiv.style.height = '100%';
+                    hiddenDiv.style.backgroundColor = '#000000';
+                    slot.appendChild(hiddenDiv);
+                }
                 container.appendChild(slot);
             }
         });
@@ -381,13 +432,13 @@
         };
     }
     
-    // ========== DAMMA OYUNU - DÜZƏLDİLMİŞ BOT ARDIcIL VURMA ==========
+    // ========== DAMMA OYUNU - DÜZGÜN ARDICIL VURMA ==========
     let board = [];
     let turn = 'player';
     let selectedSquare = null;
     let possibleMoves = [];
     let gameActive = true;
-    let waitingForBotContinue = false;  // Bot ardıcıl vuranda gözləmə üçün
+    let waitingForBotContinue = false;
     
     function initBoard() {
         board = Array(8).fill().map(() => Array(8).fill(null));
@@ -488,21 +539,17 @@
         if(piece.color === 'player' && toR === 0) piece.type = 'king';
         if(piece.color === 'bot' && toR === 7) piece.type = 'king';
         
-        // Əgər vuruş oldusa, yenə vura biləcəyini yoxla
         if(captured) {
             const nextCaptures = getValidMoves(toR, toC, true).filter(m => m.captured);
             if(nextCaptures.length > 0) {
-                // Eyni daşla ardıcıl vuruş davam edir
                 selectedSquare = { r: toR, c: toC };
                 possibleMoves = nextCaptures;
                 renderBoard();
                 
-                // Əgər bot idisə, avtomatik davam etdir
                 if(turn === 'bot') {
                     waitingForBotContinue = true;
                     setTimeout(() => {
                         if (waitingForBotContinue && gameActive && turn === 'bot' && selectedSquare && possibleMoves.length > 0) {
-                            // Bot avtomatik olaraq ilk vuruşu seçib davam etdirir
                             const nextMove = possibleMoves[0];
                             executeMove(selectedSquare.r, selectedSquare.c, nextMove.r, nextMove.c, nextMove.captured);
                         }
@@ -513,7 +560,6 @@
             }
         }
         
-        // Vuruş bitdi, növbə dəyişir
         turn = turn === 'player' ? 'bot' : 'player';
         selectedSquare = null;
         possibleMoves = [];
@@ -528,7 +574,6 @@
         }
     }
     
-    // Bot üçün bütün mümkün gedişləri (zəncirvari vuruşlar da daxil) tap
     function getAllBotMoves() {
         let allMoves = [];
         for(let r=0;r<8;r++){
@@ -552,16 +597,12 @@
         let chosenMoves = captureMoves.length > 0 ? captureMoves : moves;
         
         if(chosenMoves.length === 0) {
-            // Heç bir gediş yoxdursa, oyun bitmiş sayılır
             afterMoveCheckVictory();
             return;
         }
         
-        // Ən yaxşı gedişi seç (təsadüfi)
         const randomIndex = Math.floor(Math.random() * chosenMoves.length);
         const move = chosenMoves[randomIndex];
-        
-        // Gedişi icra et (executeMove özü ardıcıl vuruşları idarə edəcək)
         executeMove(move.from.r, move.from.c, move.to.r, move.to.c, move.to.captured);
     }
     
