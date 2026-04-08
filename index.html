@@ -272,14 +272,11 @@
 </div>
 
 <script>
-    // ============================================================
-    // ŞƏKİL SİSTEMİ - İNDİ "sekil.jpg" AVTOMATIK YÜKLƏNİR
-    // ============================================================
+    // ========== ŞƏKİL SİSTEMİ ==========
     let unlockedPieces = [false, false, false];
     let nextUnlockIndex = 0;
-    let currentImageUrl = null;  // null olanda avtomatik "sekil.jpg" yüklənir
+    let currentImageUrl = null;
     
-    // Şəkili 3 hissəyə bölür
     function splitImageToPieces(imageUrl, callback) {
         const img = new Image();
         img.crossOrigin = "Anonymous";
@@ -302,7 +299,6 @@
             }
         };
         img.onerror = () => {
-            // Şəkil tapılmadısa, gözəl default neon şəkil
             const fallback = [];
             for (let i = 0; i < 3; i++) {
                 const canvas = document.createElement('canvas');
@@ -322,7 +318,6 @@
                 fallback.push(canvas.toDataURL());
             }
             callback(fallback);
-            console.log("Şəkil tapılmadı: " + imageUrl);
         };
         img.src = imageUrl;
     }
@@ -333,14 +328,7 @@
         const total = unlockedPieces.filter(v => v === true).length;
         document.getElementById('progressText').innerHTML = `🏆 ${total} / 3 hissə açılıb`;
         
-        // Şəkil yolu: əgər istifadəçi şəkil seçibsə onu götür, yoxsa "sekil.jpg"
-        let imageToLoad;
-        if (currentImageUrl) {
-            imageToLoad = currentImageUrl;
-        } else {
-            // AVTOMATIK OLARAQ "sekil.jpg" - SİZİN ŞƏKİL ADINIZ
-            imageToLoad = "sekil.jpg";
-        }
+        let imageToLoad = currentImageUrl ? currentImageUrl : "sekil.jpg";
         
         splitImageToPieces(imageToLoad, (pieceUrls) => {
             container.innerHTML = '';
@@ -357,16 +345,13 @@
     }
     
     function unlockNextPieceSegment() {
-        if (nextUnlockIndex >= 3) {
-            return false;
-        }
+        if (nextUnlockIndex >= 3) return false;
         if (!unlockedPieces[nextUnlockIndex]) {
             unlockedPieces[nextUnlockIndex] = true;
             refreshPuzzleDisplay();
             nextUnlockIndex++;
             return true;
         }
-        // təhlükəsizlik üçün boş yeri tap
         for (let i = 0; i < 3; i++) {
             if (!unlockedPieces[i]) {
                 unlockedPieces[i] = true;
@@ -378,15 +363,10 @@
         return false;
     }
     
-    // ========== ŞƏKİL SEÇİMİ (Əl ilə dəyişmək üçün) ==========
     function setupImageSelection() {
         const selectBtn = document.getElementById('selectImageBtn');
         const fileInput = document.getElementById('fileInput');
-        
-        selectBtn.onclick = () => {
-            fileInput.click();
-        };
-        
+        selectBtn.onclick = () => fileInput.click();
         fileInput.onchange = (e) => {
             const file = e.target.files[0];
             if (file && file.type.startsWith('image/')) {
@@ -401,12 +381,13 @@
         };
     }
     
-    // ========== DAMMA OYUNU ==========
+    // ========== DAMMA OYUNU - DÜZƏLDİLMİŞ BOT ARDIcIL VURMA ==========
     let board = [];
     let turn = 'player';
     let selectedSquare = null;
     let possibleMoves = [];
     let gameActive = true;
+    let waitingForBotContinue = false;  // Bot ardıcıl vuranda gözləmə üçün
     
     function initBoard() {
         board = Array(8).fill().map(() => Array(8).fill(null));
@@ -507,16 +488,32 @@
         if(piece.color === 'player' && toR === 0) piece.type = 'king';
         if(piece.color === 'bot' && toR === 7) piece.type = 'king';
         
+        // Əgər vuruş oldusa, yenə vura biləcəyini yoxla
         if(captured) {
             const nextCaptures = getValidMoves(toR, toC, true).filter(m => m.captured);
             if(nextCaptures.length > 0) {
+                // Eyni daşla ardıcıl vuruş davam edir
                 selectedSquare = { r: toR, c: toC };
                 possibleMoves = nextCaptures;
                 renderBoard();
+                
+                // Əgər bot idisə, avtomatik davam etdir
+                if(turn === 'bot') {
+                    waitingForBotContinue = true;
+                    setTimeout(() => {
+                        if (waitingForBotContinue && gameActive && turn === 'bot' && selectedSquare && possibleMoves.length > 0) {
+                            // Bot avtomatik olaraq ilk vuruşu seçib davam etdirir
+                            const nextMove = possibleMoves[0];
+                            executeMove(selectedSquare.r, selectedSquare.c, nextMove.r, nextMove.c, nextMove.captured);
+                        }
+                        waitingForBotContinue = false;
+                    }, 300);
+                }
                 return;
             }
         }
         
+        // Vuruş bitdi, növbə dəyişir
         turn = turn === 'player' ? 'bot' : 'player';
         selectedSquare = null;
         possibleMoves = [];
@@ -525,26 +522,47 @@
             else document.getElementById('status').innerHTML = "🤖 BOT DÜŞÜNÜR...";
         }
         renderBoard();
-        if(turn === 'bot' && gameActive) setTimeout(botMove, 500);
+        
+        if(turn === 'bot' && gameActive) {
+            setTimeout(() => botTurn(), 400);
+        }
     }
     
-    function botMove() {
-        if(!gameActive || turn !== 'bot') return;
-        let pieces = [];
-        for(let i=0;i<8;i++){
-            for(let j=0;j<8;j++){
-                if(board[i][j] && board[i][j].color === 'bot') pieces.push({r:i,c:j});
+    // Bot üçün bütün mümkün gedişləri (zəncirvari vuruşlar da daxil) tap
+    function getAllBotMoves() {
+        let allMoves = [];
+        for(let r=0;r<8;r++){
+            for(let c=0;c<8;c++){
+                if(board[r][c] && board[r][c].color === 'bot') {
+                    const moves = getValidMoves(r, c);
+                    moves.forEach(m => {
+                        allMoves.push({ from: {r, c}, to: m });
+                    });
+                }
             }
         }
-        let allMoves = [];
-        pieces.forEach(p => {
-            getValidMoves(p.r, p.c).forEach(m => allMoves.push({from:p, to:m}));
-        });
-        let captureMoves = allMoves.filter(m => m.to.captured);
-        let chosen = captureMoves.length > 0 ? captureMoves : allMoves;
-        if(chosen.length === 0) return;
-        const randomMove = chosen[Math.floor(Math.random() * chosen.length)];
-        executeMove(randomMove.from.r, randomMove.from.c, randomMove.to.r, randomMove.to.c, randomMove.to.captured);
+        return allMoves;
+    }
+    
+    function botTurn() {
+        if(!gameActive || turn !== 'bot') return;
+        
+        let moves = getAllBotMoves();
+        let captureMoves = moves.filter(m => m.to.captured);
+        let chosenMoves = captureMoves.length > 0 ? captureMoves : moves;
+        
+        if(chosenMoves.length === 0) {
+            // Heç bir gediş yoxdursa, oyun bitmiş sayılır
+            afterMoveCheckVictory();
+            return;
+        }
+        
+        // Ən yaxşı gedişi seç (təsadüfi)
+        const randomIndex = Math.floor(Math.random() * chosenMoves.length);
+        const move = chosenMoves[randomIndex];
+        
+        // Gedişi icra et (executeMove özü ardıcıl vuruşları idarə edəcək)
+        executeMove(move.from.r, move.from.c, move.to.r, move.to.c, move.to.captured);
     }
     
     function handleSquareClick(r,c) {
@@ -588,6 +606,7 @@
         selectedSquare = null;
         possibleMoves = [];
         gameActive = true;
+        waitingForBotContinue = false;
         document.getElementById('status').innerHTML = "🌀 SİZİN NÖVBƏNİZ";
         renderBoard();
     }
@@ -595,7 +614,7 @@
     // ========== BAŞLANĞIC ==========
     initBoard();
     setupImageSelection();
-    refreshPuzzleDisplay();  // İndi "sekil.jpg" ni avtomatik yükləyəcək!
+    refreshPuzzleDisplay();
     renderBoard();
     document.getElementById('resetGameBtn').onclick = () => resetGame();
 </script>
