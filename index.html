@@ -1,18 +1,593 @@
+
 <!DOCTYPE html>
 <html lang="az">
 <head>
     <meta charset="UTF-8">
-    <title>Profil</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Neon Damma - Şəkil Açma Oyunu</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(circle at 20% 30%, #0a0f1a, #020205);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Orbitron', monospace;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .neon-arena {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 30px;
+            max-width: 1300px;
+            width: 100%;
+        }
+
+        .image-puzzle {
+            background: rgba(5, 5, 15, 0.7);
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            padding: 18px 15px;
+            border: 1px solid #0ff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            width: 280px;
+            text-align: center;
+        }
+
+        .puzzle-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, cyan, magenta);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .puzzle-stats {
+            background: #000000aa;
+            border-radius: 60px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            color: #0ff;
+            border: 1px solid cyan;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+
+        .pieces-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .piece-slot {
+            width: 240px;
+            height: 100px;
+            background: #0a0a1a;
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.25s ease;
+            border: 2px solid #2a2a4a;
+        }
+
+        .piece-slot.locked {
+            filter: blur(8px) grayscale(0.5);
+            border-color: #444;
+        }
+
+        .piece-slot.unlocked {
+            filter: drop-shadow(0 0 12px cyan) blur(0px);
+            border: 2px solid cyan;
+            animation: neonPulse 1.2s infinite alternate;
+        }
+
+        @keyframes neonPulse {
+            0% { box-shadow: 0 0 2px cyan; border-color: cyan; }
+            100% { box-shadow: 0 0 18px #0ff; border-color: #0ff; }
+        }
+
+        .piece-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .upload-btn {
+            background: #111;
+            border: 1px solid magenta;
+            border-radius: 60px;
+            padding: 8px 16px;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            color: magenta;
+            cursor: pointer;
+            margin-top: 12px;
+            display: inline-block;
+        }
+
+        .upload-btn:hover {
+            background: magenta;
+            color: black;
+        }
+
+        .game-container {
+            background: rgba(8, 8, 18, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            border-radius: 32px;
+            border: 2px solid #0ff;
+            box-shadow: 0 0 35px rgba(0, 255, 255, 0.25);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .board-wrapper {
+            width: min(70vw, 70vh, 500px);
+            height: min(70vw, 70vh, 500px);
+            background: #101018;
+            border-radius: 16px;
+            padding: 8px;
+            border: 2px solid #ff44ff;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            width: 100%;
+            height: 100%;
+            background: #181828;
+        }
+
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            aspect-ratio: 1;
+            cursor: pointer;
+        }
+
+        .square.dark { background-color: #252540; }
+        .square.light { background-color: #3a3a5a; }
+
+        .piece {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .piece.player {
+            background: radial-gradient(circle at 30% 30%, #0ff, #0088aa);
+            border: 2px solid white;
+            box-shadow: 0 0 12px cyan;
+        }
+
+        .piece.bot {
+            background: radial-gradient(circle at 30% 30%, #f0f, #a0a);
+            border: 2px solid white;
+            box-shadow: 0 0 12px magenta;
+        }
+
+        .piece.king::after {
+            content: "★";
+            font-size: 1.8rem;
+            color: gold;
+        }
+
+        .square.selected {
+            background: rgba(0, 255, 255, 0.6) !important;
+            box-shadow: inset 0 0 18px cyan;
+        }
+
+        .square.highlight {
+            background: rgba(255, 215, 0, 0.4) !important;
+            box-shadow: inset 0 0 12px gold;
+        }
+
+        .status {
+            background: #0a0a1a;
+            border-radius: 28px;
+            padding: 10px 18px;
+            margin-top: 18px;
+            border: 1px solid cyan;
+            color: cyan;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .controls {
+            margin-top: 12px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid #ff00ff;
+            padding: 6px 20px;
+            border-radius: 40px;
+            font-family: 'Orbitron', monospace;
+            font-weight: bold;
+            color: #ff44ff;
+            cursor: pointer;
+        }
+
+        .btn-reset {
+            border-color: #ffff00;
+            color: #ffff00;
+        }
+
+        .btn-reset:hover {
+            background: #ffff00;
+            color: black;
+        }
+
+        @media (max-width: 750px) {
+            .image-puzzle { width: 250px; }
+            .piece-slot { width: 210px; height: 90px; }
+            .board-wrapper { width: 80vw; height: 80vw; }
+        }
+    </style>
 </head>
 <body>
 
-    <h1>Əliyev Serxan</h1>
+<div class="neon-arena">
+    <div class="image-puzzle">
+        <div class="puzzle-title">⚡ QƏLƏBƏ ŞƏKİLİ ⚡</div>
+        <div class="puzzle-stats" id="progressText">🔓 0 / 3 hissə açılıb</div>
+        <div class="pieces-container" id="piecesContainer"></div>
+        
+        <!-- Həm avtomatik, həm də əl ilə seçim üçün düymə -->
+        <button id="selectImageBtn" class="upload-btn">📁 ŞƏKİL SEÇ (Dəyiş)</button>
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        <div style="font-size: 9px; margin-top: 12px; color: #6aa;">🏆 Hər qələbə = 1 hissə açılır<br>📂 "sekil.png" avtomatik yüklənir</div>
+    </div>
 
+    <div class="game-container">
+        <div class="board-wrapper">
+            <div id="board" class="board"></div>
+        </div>
+        <div id="status" class="status">🌀 SİZİN NÖVBƏNİZ</div>
+        <div class="controls">
+            <button id="resetGameBtn" class="btn btn-reset">♻️ YENİ OYUN</button>
+        </div>
+    </div>
+</div>
 
-
-    <!-- Şəkil -->
-    <h3>Şəkil:</h3>
-    <img src="sekil.jpg" width="200">
-
+<script>
+    // ============================================================
+    // ŞƏKİL SİSTEMİ - HƏM AVTOMATİK (sekil.png), HƏM DƏ ƏL İLƏ SEÇİM
+    // ============================================================
+    let unlockedPieces = [false, false, false];
+    let nextUnlockIndex = 0;
+    let currentImageUrl = null;  // əgər null-dursa, avtomatik "sekil.png" yüklənir
+    
+    // Şəkili 3 hissəyə bölür
+    function splitImageToPieces(imageUrl, callback) {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = () => {
+            const imgWidth = img.width;
+            const imgHeight = img.height;
+            const pieceHeight = imgHeight / 3;
+            const pieces = [];
+            let loaded = 0;
+            for (let i = 0; i < 3; i++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 240;
+                canvas.height = 100;
+                const ctx = canvas.getContext('2d');
+                const srcY = i * pieceHeight;
+                ctx.drawImage(img, 0, srcY, imgWidth, pieceHeight, 0, 0, 240, 100);
+                pieces.push(canvas.toDataURL('image/png'));
+                loaded++;
+                if (loaded === 3) callback(pieces);
+            }
+        };
+        img.onerror = () => {
+            // Şəkil tapılmadısa, gözəl default
+            const fallback = [];
+            for (let i = 0; i < 3; i++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 240;
+                canvas.height = 100;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = `hsl(${i * 120}, 70%, 35%)`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "white";
+                ctx.font = "bold 14px Orbitron";
+                ctx.fillText(`🔮 Hissə ${i+1}`, 20, 50);
+                fallback.push(canvas.toDataURL());
+            }
+            callback(fallback);
+        };
+        img.src = imageUrl;
+    }
+    
+    function refreshPuzzleDisplay() {
+        const container = document.getElementById('piecesContainer');
+        if (!container) return;
+        const total = unlockedPieces.filter(v => v === true).length;
+        document.getElementById('progressText').innerHTML = `🏆 ${total} / 3 hissə açılıb`;
+        
+        // İstifadəçi şəkil seçibsə onu götür, yoxsa avtomatik "sekil.png"
+        let imageToLoad;
+        if (currentImageUrl) {
+            imageToLoad = currentImageUrl;
+        } else {
+            imageToLoad = "sekil.png";  // AVTOMATİK OLARAQ EYNİ PAPKADAKI "sekil.png" FAYLINI GÖTÜRÜR
+        }
+        
+        splitImageToPieces(imageToLoad, (pieceUrls) => {
+            container.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const slot = document.createElement('div');
+                slot.className = `piece-slot ${unlockedPieces[i] ? 'unlocked' : 'locked'}`;
+                const img = document.createElement('img');
+                img.className = 'piece-img';
+                img.src = pieceUrls[i];
+                slot.appendChild(img);
+                container.appendChild(slot);
+            }
+        });
+    }
+    
+    function unlockNextPieceSegment() {
+        if (nextUnlockIndex >= 3) return false;
+        if (!unlockedPieces[nextUnlockIndex]) {
+            unlockedPieces[nextUnlockIndex] = true;
+            refreshPuzzleDisplay();
+            nextUnlockIndex++;
+            return true;
+        }
+        return false;
+    }
+    
+    function resetPuzzleProgress() {
+        unlockedPieces = [false, false, false];
+        nextUnlockIndex = 0;
+        refreshPuzzleDisplay();
+    }
+    
+    // ========== ŞƏKİL SEÇİMİ (İstəsəniz dəyişə bilərsiniz) ==========
+    function setupImageSelection() {
+        const selectBtn = document.getElementById('selectImageBtn');
+        const fileInput = document.getElementById('fileInput');
+        
+        selectBtn.onclick = () => {
+            fileInput.click();
+        };
+        
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    currentImageUrl = ev.target.result;
+                    refreshPuzzleDisplay();  // Yeni şəkillə yenilə
+                };
+                reader.readAsDataURL(file);
+            }
+            fileInput.value = '';
+        };
+    }
+    
+    // ========== DAMMA OYUNU ==========
+    let board = [];
+    let turn = 'player';
+    let selectedSquare = null;
+    let possibleMoves = [];
+    let gameActive = true;
+    
+    function initBoard() {
+        board = Array(8).fill().map(() => Array(8).fill(null));
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if ((r + c) % 2 !== 0) {
+                    if (r < 3) board[r][c] = { type: 'normal', color: 'bot' };
+                    if (r > 4) board[r][c] = { type: 'normal', color: 'player' };
+                }
+            }
+        }
+    }
+    
+    function getValidMoves(r, c, forceCaptureOnly = false) {
+        const piece = board[r][c];
+        if (!piece) return [];
+        const moves = [];
+        const dirs = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+        
+        if (piece.type === 'king') {
+            dirs.forEach(([dr, dc]) => {
+                let nr = r + dr, nc = c + dc;
+                let enemyFound = false;
+                let enemyPos = null;
+                while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                    const target = board[nr][nc];
+                    if (!enemyFound) {
+                        if (!target) {
+                            if (!forceCaptureOnly) moves.push({ r: nr, c: nc });
+                        } else if (target.color !== piece.color) {
+                            enemyFound = true;
+                            enemyPos = { r: nr, c: nc };
+                        } else break;
+                    } else {
+                        if (!target) moves.push({ r: nr, c: nc, captured: enemyPos });
+                        else break;
+                    }
+                    nr += dr; nc += dc;
+                }
+            });
+        } else {
+            dirs.forEach(([dr, dc]) => {
+                const nr = r + dr, nc = c + dc;
+                const jr = r + 2*dr, jc = c + 2*dc;
+                if (jr >=0 && jr<8 && jc>=0 && jc<8) {
+                    const mid = board[nr][nc];
+                    if (mid && mid.color !== piece.color && !board[jr][jc]) {
+                        moves.push({ r: jr, c: jc, captured: { r: nr, c: nc } });
+                    }
+                }
+                if (!forceCaptureOnly) {
+                    const forward = piece.color === 'player' ? dr < 0 : dr > 0;
+                    if (forward && nr>=0 && nr<8 && nc>=0 && nc<8 && !board[nr][nc]) {
+                        moves.push({ r: nr, c: nc });
+                    }
+                }
+            });
+        }
+        return moves;
+    }
+    
+    function checkWinner() {
+        let hasPlayer = false, hasBot = false;
+        for(let r=0;r<8;r++){
+            for(let c=0;c<8;c++){
+                const p = board[r][c];
+                if(p && p.color === 'player') hasPlayer = true;
+                if(p && p.color === 'bot') hasBot = true;
+            }
+        }
+        if(!hasPlayer) return 'bot';
+        if(!hasBot) return 'player';
+        return null;
+    }
+    
+    function afterMoveCheckVictory() {
+        const winner = checkWinner();
+        if(winner === 'player') {
+            document.getElementById('status').innerHTML = "🏆 SİZ QALİB GƏLDİNİZ! 🏆";
+            gameActive = false;
+            unlockNextPieceSegment();
+            return true;
+        } else if(winner === 'bot') {
+            document.getElementById('status').innerHTML = "💀 BOT QALİB GƏLDİ 💀";
+            gameActive = false;
+            return true;
+        }
+        return false;
+    }
+    
+    function executeMove(fromR, fromC, toR, toC, captured) {
+        if(!gameActive) return;
+        const piece = board[fromR][fromC];
+        board[toR][toC] = piece;
+        board[fromR][fromC] = null;
+        if(captured) board[captured.r][captured.c] = null;
+        
+        if(piece.color === 'player' && toR === 0) piece.type = 'king';
+        if(piece.color === 'bot' && toR === 7) piece.type = 'king';
+        
+        if(captured) {
+            const nextCaptures = getValidMoves(toR, toC, true).filter(m => m.captured);
+            if(nextCaptures.length > 0) {
+                selectedSquare = { r: toR, c: toC };
+                possibleMoves = nextCaptures;
+                renderBoard();
+                return;
+            }
+        }
+        
+        turn = turn === 'player' ? 'bot' : 'player';
+        selectedSquare = null;
+        possibleMoves = [];
+        if(!afterMoveCheckVictory()) {
+            if(turn === 'player') document.getElementById('status').innerHTML = "🌀 SİZİN NÖVBƏNİZ";
+            else document.getElementById('status').innerHTML = "🤖 BOT DÜŞÜNÜR...";
+        }
+        renderBoard();
+        if(turn === 'bot' && gameActive) setTimeout(botMove, 500);
+    }
+    
+    function botMove() {
+        if(!gameActive || turn !== 'bot') return;
+        let pieces = [];
+        for(let i=0;i<8;i++){
+            for(let j=0;j<8;j++){
+                if(board[i][j] && board[i][j].color === 'bot') pieces.push({r:i,c:j});
+            }
+        }
+        let allMoves = [];
+        pieces.forEach(p => {
+            getValidMoves(p.r, p.c).forEach(m => allMoves.push({from:p, to:m}));
+        });
+        let captureMoves = allMoves.filter(m => m.to.captured);
+        let chosen = captureMoves.length > 0 ? captureMoves : allMoves;
+        if(chosen.length === 0) return;
+        const randomMove = chosen[Math.floor(Math.random() * chosen.length)];
+        executeMove(randomMove.from.r, randomMove.from.c, randomMove.to.r, randomMove.to.c, randomMove.to.captured);
+    }
+    
+    function handleSquareClick(r,c) {
+        if(!gameActive || turn !== 'player') return;
+        const moveTarget = possibleMoves.find(m => m.r === r && m.c === c);
+        if(moveTarget) {
+            executeMove(selectedSquare.r, selectedSquare.c, r, c, moveTarget.captured);
+            return;
+        }
+        if(board[r][c] && board[r][c].color === 'player') {
+            selectedSquare = { r, c };
+            possibleMoves = getValidMoves(r,c);
+            renderBoard();
+        }
+    }
+    
+    function renderBoard() {
+        const boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+        for(let r=0;r<8;r++){
+            for(let c=0;c<8;c++){
+                const sq = document.createElement('div');
+                sq.className = `square ${(r+c)%2 !==0 ? 'dark' : 'light'}`;
+                if(selectedSquare && selectedSquare.r === r && selectedSquare.c === c) sq.classList.add('selected');
+                if(possibleMoves.some(m => m.r === r && m.c === c)) sq.classList.add('highlight');
+                const p = board[r][c];
+                if(p){
+                    const pieceDiv = document.createElement('div');
+                    pieceDiv.className = `piece ${p.color} ${p.type === 'king' ? 'king' : ''}`;
+                    sq.appendChild(pieceDiv);
+                }
+                sq.onclick = () => handleSquareClick(r,c);
+                boardEl.appendChild(sq);
+            }
+        }
+    }
+    
+    function resetGame() {
+        initBoard();
+        turn = 'player';
+        selectedSquare = null;
+        possibleMoves = [];
+        gameActive = true;
+        document.getElementById('status').innerHTML = "🌀 SİZİN NÖVBƏNİZ";
+        renderBoard();
+    }
+    
+    // ========== BAŞLANĞIC ==========
+    initBoard();
+    setupImageSelection();
+    refreshPuzzleDisplay();  // Avtomatik "sekil.png" ni yükləyəcək (varsa)
+    renderBoard();
+    document.getElementById('resetGameBtn').onclick = () => resetGame();
+</script>
 </body>
 </html>
